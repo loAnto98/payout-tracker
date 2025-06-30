@@ -42,6 +42,7 @@
   <!-- Sezione gioco -->
   <div id="game-container">
     <iframe 
+      id="game-iframe"
       src="https://ogs-gcm-eu-prod.nyxop.net/gcm/gcm-launcher/launcher.html?gameUrl=https%3A%2F%2Fpublic-ga.spribegaming.com%2Fsg%2Fmiddleware%2Flaunch%3Fenvid%3Deur&gameid=aviator&gameName=aviator&operatorid=1367&sessionid=Free%3Agat4moda6u7eqoo51rgpuimske5&mode=demo&lang=it_it&currency=EUR&lobbyurl=&depositurl=&ogsgameid=2440001&device=mobile" 
       width="100%" 
       height="600px" 
@@ -95,11 +96,20 @@
         return valore >= 1.00 && valore <= 1.99;
     }
 
+    // === Funzione per raccogliere i numeri dall'iframe ===
     function leggiPrimiNumeri() {
-        const elementi = document.querySelectorAll('.payout');
+        const iframe = document.getElementById('game-iframe');
+        const iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+
+        if (!iframeDocument) {
+            console.error('Impossibile accedere al contenuto dell\'iframe.');
+            return;
+        }
+
+        const elementi = iframeDocument.querySelectorAll('.payout'); // Trova gli elementi con la classe "payout"
         const numeriTrovati = [];
 
-        // Raccogli i numeri dal DOM
+        // Raccogli i numeri dal DOM dell'iframe
         elementi.forEach(el => {
             const testo = el.textContent.trim().replace(/\s+/g, '');
             if (/^[0-9]+\.[0-9]+x$/.test(testo)) {
@@ -151,6 +161,7 @@
         outputDiv.scrollTop = outputDiv.scrollHeight;
     }
 
+    // === Funzione per verificare la sequenza ===
     function verificaSequenza(sequenza, numeri, tempoAttuale, tipoSequenza) {
         const oraUltimoAvviso = sequenzeAvvisate.get(sequenza);
 
@@ -183,3 +194,4 @@
 
 </body>
 </html>
+
