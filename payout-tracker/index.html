@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <title>Payout Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f9;
+    }
+    #game-container {
+      margin-bottom: 20px;
+    }
+    iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    #outputDiv {
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      width: 300px;
+      height: 150px;
+      overflow-y: auto;
+      background-color: rgba(0, 0, 0, 0.85);
+      color: white;
+      font-size: 12px;
+      z-index: 9999;
+      padding: 10px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Payout Tracker - Gioco Aviator</h1>
+
+  <!-- Sezione gioco -->
+  <div id="game-container">
+    <iframe 
+      src="https://ogs-gcm-eu-prod.nyxop.net/gcm/gcm-launcher/launcher.html?gameUrl=https%3A%2F%2Fpublic-ga.spribegaming.com%2Fsg%2Fmiddleware%2Flaunch%3Fenvid%3Deur&gameid=aviator&gameName=aviator&operatorid=1367&sessionid=Free%3Agat4moda6u7eqoo51rgpuimske5&mode=demo&lang=it_it&currency=EUR&lobbyurl=&depositurl=&ogsgameid=2440001&device=mobile" 
+      width="100%" 
+      height="600px" 
+      style="border: none;">
+    </iframe>
+  </div>
+
+  <!-- Div per visualizzare le notifiche -->
+  <div id="outputDiv">
+    🟢 Script attivo...
+  </div>
+
+  <!-- Aggiungi il tuo script qui -->
+  <script>
+    // === CONFIG TELEGRAM ===
+    const TELEGRAM_TOKEN = '7052346353:AAG2cTRiDgGfgTOkFwJXEdnX7Oos8QX_Wcw';
+    const first_chat_id = '-4567296224';  // Primo gruppo per notifiche sequenze valide
+    const second_chat_id = '-4522590104'; // Secondo gruppo per notifiche se non vengono trovati numeri
+
+    function sendTelegramAlert(message, chatId) {
+        const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+        const data = {
+            chat_id: chatId,
+            text: message
+        };
+
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                console.error('Errore Telegram:', response.statusText);
+            }
+        }).catch(err => {
+            console.error('Errore Telegram:', err);
+        });
+    }
+
+    // === Memorizza le sequenze e i loro tempi di avviso ===
+    let sequenzeAvvisate = new Map();
+    let sequenzaDa7Notificata = false;
+    let ultimoAvvisoSecondoGruppo = 0;
+
+    const INTERVALLO_NOTIFICA = 600000; 
+    const INTERVALLO_NOTIFICA_SECONDOGRUPO = 60000;
+
+    // Funzione per verificare se un numero è nel range 1.00x - 1.99x
+    function isNumeroValido(numero) {
+        const valore = parseFloat(numero.replace('x', ''));
+        return valore >= 1.00 && valore <= 1.99;
+    }
+
+    function leggiPrimiNumeri() {
+        const elementi = document.querySelectorAll('.payout');
+        const numeriTrovati = [];
+
+        // Raccogli i numeri dal DOM
+        elementi.forEach(el => {
+            const testo = el.textContent.trim().replace(/\s+/g, '');
+            if (/^[0-9]+\.[0-9]+x$/.test(testo)) {
+                numeriTrovati.push(testo);
+            }
+        });
+
+        // Se ci sono almeno 7 numeri
+        if (numeriTrovati.length >= 7) {
+            const tempoAttuale = Date.now();
+
+            // Prima verifica la sequenza da 7 numeri (se tutti i numeri sono validi)
+            if (isNumeroValido(numeriTrovati[0]) && isNumeroValido(numeriTrovati[1]) && isNumeroValido(numeriTrovati[2]) &&
+                isNumeroValido(numeriTrovati[3]) && isNumeroValido(numeriTrovati[4]) && isNumeroValido(numeriTrovati[5]) &&
+                isNumeroValido(numeriTrovati[6])) {
+                const sequenza7 = numeriTrovati.slice(0, 7).join(', ');
+
+                // Se la sequenza da 7 non è ancora stata notificata, inviala
+                if (!sequenzaDa7Notificata) {
+                    verificaSequenza(sequenza7, numeriTrovati, tempoAttuale, 7);
+                    // Segna che la sequenza da 7 è stata notificata
+                    sequenzaDa7Notificata = true;
+                }
+
+                // Ora verifica la sequenza da 8 numeri, se esiste (se non è stata già notificata)
+                if (numeriTrovati.length >= 8 &&
+                    isNumeroValido(numeriTrovati[7])) {
+                    const sequenza8 = numeriTrovati.slice(0, 8).join(', ');
+
+                    if (!sequenzeAvvisate.has(sequenza8)) {
+                        verificaSequenza(sequenza8, numeriTrovati, tempoAttuale, 8);
+                    }
+                }
+            }
+        } else {
+            // Se non sono stati trovati abbastanza numeri, invia un avviso al secondo gruppo
+            const tempoAttuale = Date.now();
+
+            if (tempoAttuale - ultimoAvvisoSecondoGruppo > INTERVALLO_NOTIFICA_SECONDOGRUPO) {
+                outputDiv.innerText = "⏳ In attesa di almeno 7 numeri...\n";
+                const messaggio = "⚠️ Attenzione: Non sono stati trovati abbastanza numeri (manca la sequenza).";
+                sendTelegramAlert(messaggio, second_chat_id);
+
+                // Aggiorna l'orario dell'ultimo avviso per il secondo gruppo
+                ultimoAvvisoSecondoGruppo = tempoAttuale;
+            }
+        }
+
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+    }
+
+    function verificaSequenza(sequenza, numeri, tempoAttuale, tipoSequenza) {
+        const oraUltimoAvviso = sequenzeAvvisate.get(sequenza);
+
+        // Verifica se la sequenza è già stata avvisata e se è passato abbastanza tempo
+        if (!oraUltimoAvviso || (tempoAttuale - oraUltimoAvviso) > INTERVALLO_NOTIFICA) {
+            const messaggio = `🚨 ATTENZIONE: Nuova sequenza ${tipoSequenza} trovata: ${sequenza}`;
+            outputDiv.innerText = `📊 Ultimi ${tipoSequenza} numeri: ${sequenza}\n${messaggio}`;
+            sendTelegramAlert(messaggio, first_chat_id);
+
+            // Aggiorna l'orario dell'ultimo avviso per questa sequenza
+            sequenzeAvvisate.set(sequenza, tempoAttuale);
+        }
+    }
+
+    setInterval(leggiPrimiNumeri, 3000);  // Esegui la funzione ogni 3 secondi
+  </script>
+
+  <!-- Aggiungi il service worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(function(registration) {
+          console.log('Service Worker registrato con successo:', registration);
+        })
+        .catch(function(error) {
+          console.log('Registrazione Service Worker fallita:', error);
+        });
+    }
+  </script>
+
+</body>
+</html>
