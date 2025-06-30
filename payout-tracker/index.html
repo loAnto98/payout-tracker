@@ -117,6 +117,13 @@
             }
         });
 
+        // Mostra i numeri trovati nel div di output per il debug
+        if (numeriTrovati.length > 0) {
+            outputDiv.innerHTML = `🟢 Numeri trovati: ${numeriTrovati.join(', ')}<br>🟢 Sequenza letta con successo.`;
+        } else {
+            outputDiv.innerHTML = '⏳ In attesa di numeri validi...';
+        }
+
         // Se ci sono almeno 7 numeri
         if (numeriTrovati.length >= 7) {
             const tempoAttuale = Date.now();
@@ -194,4 +201,3 @@
 
 </body>
 </html>
-
